@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Coordinate Maker</title>
+  <style>
+    #img-container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      border: 2px dashed #aaa;
+      background: #f9f9f9;
+      user-select: none;
+      display: inline-block;
+      overflow: hidden;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #img-container.dragover {
+      border-color: #2a7;
+      background: #e2ffe9;
+    }
+    #the-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      user-select: none;
+      pointer-events: none;
+      display: none;
+    }
+    .rect {
+      position: absolute;
+      border: 2px solid #2a7;
+      background: rgba(44,222,88,0.15);
+      box-sizing: border-box;
+      cursor: move;
+    }
+    .rect.selected {
+      border: 2px solid #f00;
+      background: rgba(255,100,100,0.15);
+      z-index: 10;
+    }
+    .handle {
+      position: absolute;
+      width: 12px; height: 12px;
+      background: #2a7;
+      border-radius: 50%;
+      cursor: pointer;
+      margin: -6px 0 0 -6px;
+      z-index: 20;
+      border: 1px solid #fff;
+      box-shadow: 0 0 2px #0004;
+      display: none;
+    }
+    .rect.selected .handle {
+      display: block;
+    }
+    #coords {
+      font-family: monospace;
+      margin-top: 10px;
+      background: #f8f8f8;
+      padding: 10px;
+      border: 1px solid #bbb;
+      width: 480px;
+      min-height: 120px;
+    }
+    #drop-message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 90%;
+      transform: translate(-50%, -50%);
+      color: #2a7;
+      font-size: 1.6em;
+      text-align: center;
+      pointer-events: none;
+      display: none;
+      background: rgba(255,255,255,0.75);
+      border-radius: 10px;
+      padding: 0.5em 0;
+      z-index: 1000;
+    }
+    #toolbar {
+      margin-bottom: 0.5em;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5em;
+    }
+    #toolbar button, #toolbar input[type="file"] {
+      margin-right: 1em;
+      padding: 0.5em 1em;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    #filename-input {
+      padding: 0.5em 1em;
+      font-size: 1em;
+      width: 220px;
+      margin-right: 1em;
+    }
+    #file-name-label {
+      font-size: 0.98em;
+      margin-right: 1em;
+      color: #333;
+      min-width: 120px;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    #memory-list {
+      margin-top: 1em;
+      font-family: monospace;
+      font-size: 1em;
+      background: #fff;
+      border: 1px solid #bbb;
+      padding: 8px 12px;
+      width: 480px;
+      min-height: 40px;
+    }
+    .memory-item {
+      margin-bottom: 0.5em;
+      border-bottom: 1px dotted #ccc;
+      padding-bottom: 0.3em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .memory-item:last-child {
+      border-bottom: none;
+    }
+    .memory-item .memory-label {
+      display: inline-block;
+      max-width: 360px;
+      word-break: break-all;
+    }
+    .memory-item .memory-delete-btn {
+      color: #c00;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      margin-left: 1em;
+      font-size: 1.1em;
+    }
+    #add-rect-btn, #save-rect-btn, #memory-save-btn {
+      margin-right: 1em;
+      padding: 0.5em 1em;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    #save-rect-btn:disabled {
+      color: #ccc;
+      border-color: #ccc;
+      cursor: default;
+    }
+    #rect-list {
+      display: none;
+    }
+    input[type="file"]::-webkit-file-upload-button { visibility: visible; }
+    input[type="file"]::file-selector-button { visibility: visible; }
+    input[type="file"]::-ms-value { display: none; }
+    input[type="file"]::-webkit-file-upload-button, 
+    input[type="file"]::before {
+      content: none !important;
+    }
+    input[type="file"] {
+      color: transparent;
+    }
+  </style>
+</head>
+<body>
+  <h2>Coordinate Maker</h2>
+  <div id="toolbar">
+    <label style="display:inline-block; position:relative;">
+      <input type="file" id="img-input" accept="image/*" style="width:140px;">
+    </label>
+    <span id="file-name-label"></span>
+    <button id="add-rect-btn">Add Rectangle</button>
+    <button id="save-rect-btn" disabled>Save Rectangle</button>
+    <input type="text" id="filename-input" placeholder="templates.json">
+    <button id="memory-save-btn">Save Memory to File</button>
+  </div>
+  <div id="img-container">
+    <span id="drop-message">Drop image here</span>
+    <img id="the-img">
+  </div>
+  <div id="coords">Coordinates:<br></div>
+  <div id="memory-list"></div>
+  <script>
+    const imgInput = document.getElementById('img-input');
+    const img = document.getElementById('the-img');
+    const container = document.getElementById('img-container');
+    const coords = document.getElementById('coords');
+    const dropMessage = document.getElementById('drop-message');
+    const addRectBtn = document.getElementById('add-rect-btn');
+    const saveRectBtn = document.getElementById('save-rect-btn');
+    const memorySaveBtn = document.getElementById('memory-save-btn');
+    const memoryList = document.getElementById('memory-list');
+    const filenameInput = document.getElementById('filename-input');
+    const fileNameLabel = document.getElementById('file-name-label');
+
+    let imgLoaded = false;
+    let imgNaturalWidth = 0, imgNaturalHeight = 0;
+    let dispImgInfo = {left:0, top:0, width:0, height:0};
+    let currentImageName = '';
+    let rectObj = null;
+    let drawing = false;
+    let moving = false;
+    let resizing = false;
+    let startX = 0, startY = 0;
+    let offsetX = 0, offsetY = 0;
+    let originX = 0, originY = 0;
+    let activeHandle = null;
+    let memory = [];
+
+    function updateFileNameLabel(name) {
+      fileNameLabel.textContent = name ? name : "";
+    }
+
+    function loadImageFromFile(file) {
+      if (!file || !file.type.match(/^image\//)) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        img.src = ev.target.result;
+        currentImageName = file.name || '';
+        updateFileNameLabel(currentImageName);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    imgInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      imgInput.value = "";
+      updateFileNameLabel(""); // Clear previous file name immediately
+      if (file) {
+        loadImageFromFile(file);
+      }
+    });
+
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.classList.add('dragover');
+      dropMessage.style.display = 'block';
+    });
+    container.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.classList.remove('dragover');
+      dropMessage.style.display = 'none';
+    });
+    container.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.classList.remove('dragover');
+      dropMessage.style.display = 'none';
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        const file = e.dataTransfer.files[0];
+        updateFileNameLabel(""); // Clear previous name immediately
+        loadImageFromFile(file);
+      }
+    });
+
+    img.addEventListener('load', () => {
+      imgLoaded = true;
+      img.style.display = "block";
+      imgNaturalWidth = img.naturalWidth;
+      imgNaturalHeight = img.naturalHeight;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      clearRect();
+      updateDispImgInfo();
+      updateCoords();
+    });
+
+    function updateDispImgInfo() {
+      const cW = container.clientWidth;
+      const cH = container.clientHeight;
+      const iW = imgNaturalWidth;
+      const iH = imgNaturalHeight;
+      let dispW = cW, dispH = cH, dispL = 0, dispT = 0;
+      const imgAspect = iW / iH;
+      const contAspect = cW / cH;
+      if (imgAspect > contAspect) {
+        dispW = cW;
+        dispH = cW / imgAspect;
+        dispT = (cH - dispH) / 2;
+        dispL = 0;
+      } else {
+        dispH = cH;
+        dispW = cH * imgAspect;
+        dispL = (cW - dispW) / 2;
+        dispT = 0;
+      }
+      dispImgInfo = {left:dispL, top:dispT, width:dispW, height:dispH};
+    }
+    window.addEventListener('resize', updateDispImgInfo);
+
+    addRectBtn.addEventListener('click', () => {
+      if (!imgLoaded) return;
+      if (rectObj) return;
+      drawing = true;
+      setSelectedRect(true);
+      coords.innerHTML = "Draw a rectangle on the image.<br>";
+      saveRectBtn.disabled = true;
+    });
+
+    saveRectBtn.addEventListener('click', () => {
+      if (!rectObj) return;
+      const imgPoints = getRectImageCoords(rectObj);
+      memory.push({
+        filename: currentImageName || '',
+        coords: imgPoints,
+        id: Date.now() + Math.random()
+      });
+      updateMemoryList();
+      clearRect();
+      coords.innerHTML = "Coordinates:<br>";
+      saveRectBtn.disabled = true;
+    });
+
+    function clearRect() {
+      if (rectObj && rectObj.element) rectObj.element.remove();
+      rectObj = null;
+      setSelectedRect(false);
+    }
+
+    container.addEventListener('mousedown', (e) => {
+      if (!imgLoaded) return;
+      if (!drawing) return;
+      if (rectObj) return;
+      if (e.target !== container && e.target !== img) return;
+      const rectC = container.getBoundingClientRect();
+      startX = e.clientX - rectC.left;
+      startY = e.clientY - rectC.top;
+      let rectEl = document.createElement('div');
+      rectEl.className = 'rect selected';
+      container.appendChild(rectEl);
+      rectObj = {
+        left: startX, top: startY, width: 0, height: 0,
+        element: rectEl, handles: []
+      };
+      setSelectedRect(true);
+      updateRectUI(rectObj);
+      document.body.style.cursor = "crosshair";
+      drawing = true;
+      function onMouseMove(ev) {
+        const currX = ev.clientX - rectC.left;
+        const currY = ev.clientY - rectC.top;
+        rectObj.left = Math.min(startX, currX);
+        rectObj.top = Math.min(startY, currY);
+        rectObj.width = Math.abs(currX - startX);
+        rectObj.height = Math.abs(currY - startY);
+        updateRectUI(rectObj);
+        updateCoords(rectObj);
+      }
+      function onMouseUp(ev) {
+        drawing = false;
+        document.body.style.cursor = "";
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        if (rectObj.width < 10 || rectObj.height < 10) {
+          clearRect();
+          saveRectBtn.disabled = true;
+        } else {
+          createHandles(rectObj);
+          updateCoords(rectObj);
+          saveRectBtn.disabled = false;
+        }
+      }
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      e.preventDefault();
+    });
+
+    container.addEventListener('mousedown', (e) => {
+      if (drawing) return;
+      if (!imgLoaded) return;
+      if (!rectObj || !rectObj.element) return;
+      if (e.target === rectObj.element) {
+        setSelectedRect(true);
+        saveRectBtn.disabled = false;
+        moving = true;
+        const rectC = container.getBoundingClientRect();
+        offsetX = e.clientX - rectC.left - rectObj.left;
+        offsetY = e.clientY - rectC.top - rectObj.top;
+        document.body.style.cursor = "move";
+        function onMove(ev) {
+          let newLeft = ev.clientX - rectC.left - offsetX;
+          let newTop = ev.clientY - rectC.top - offsetY;
+          newLeft = Math.max(0, Math.min(newLeft, container.clientWidth - rectObj.width));
+          newTop = Math.max(0, Math.min(newTop, container.clientHeight - rectObj.height));
+          rectObj.left = newLeft;
+          rectObj.top = newTop;
+          updateRectUI(rectObj);
+          updateHandles(rectObj);
+          updateCoords(rectObj);
+        }
+        function onUp(ev) {
+          moving = false;
+          document.body.style.cursor = "";
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        e.stopPropagation();
+      }
+    });
+
+    function createHandles(rectObj) {
+      if (rectObj.handles && rectObj.handles.length) {
+        rectObj.handles.forEach(h=>h.remove());
+      }
+      const positions = ['tl','tr','br','bl'];
+      rectObj.handles = [];
+      for(let i=0; i<4; i++) {
+        let h = document.createElement('div');
+        h.className = 'handle';
+        h.dataset.handle = positions[i];
+        h.style.cursor = handleCursor(positions[i]);
+        h.addEventListener('mousedown', (e) => {
+          resizing = true;
+          activeHandle = positions[i];
+          originX = e.clientX;
+          originY = e.clientY;
+          h._orig = {...rectObj};
+          document.body.style.cursor = h.style.cursor;
+          function onMove(ev) {
+            resizeRect(rectObj, ev, h._orig);
+            updateRectUI(rectObj);
+            updateHandles(rectObj);
+            updateCoords(rectObj);
+          }
+          function onUp(ev) {
+            resizing = false;
+            document.body.style.cursor = "";
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+          }
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+          e.stopPropagation();
+        });
+        rectObj.element.appendChild(h);
+        rectObj.handles.push(h);
+      }
+      updateHandles(rectObj);
+    }
+    function handleCursor(pos) {
+      switch(pos) {
+        case 'tl': return 'nwse-resize';
+        case 'tr': return 'nesw-resize';
+        case 'br': return 'nwse-resize';
+        case 'bl': return 'nesw-resize';
+        default: return 'pointer';
+      }
+    }
+    function updateHandles(rectObj) {
+      const {width, height, handles} = rectObj;
+      if(!handles || handles.length!==4) return;
+      handles[0].style.left = '0px';
+      handles[0].style.top  = '0px';
+      handles[1].style.left = width + 'px';
+      handles[1].style.top  = '0px';
+      handles[2].style.left = width + 'px';
+      handles[2].style.top  = height + 'px';
+      handles[3].style.left = '0px';
+      handles[3].style.top  = height + 'px';
+    }
+    function resizeRect(rectObj, e, orig) {
+      let dx = e.clientX - originX;
+      let dy = e.clientY - originY;
+      let nd = {...orig};
+      switch(activeHandle) {
+        case 'tl':
+          nd.left = Math.min(orig.left + dx, orig.left + orig.width - 10);
+          nd.top = Math.min(orig.top + dy, orig.top + orig.height - 10);
+          nd.width = orig.width - (nd.left - orig.left);
+          nd.height = orig.height - (nd.top - orig.top);
+          break;
+        case 'tr':
+          nd.top = Math.min(orig.top + dy, orig.top + orig.height - 10);
+          nd.width = Math.max(10, orig.width + dx);
+          nd.height = orig.height - (nd.top - orig.top);
+          nd.left = orig.left;
+          break;
+        case 'br':
+          nd.width = Math.max(10, orig.width + dx);
+          nd.height = Math.max(10, orig.height + dy);
+          nd.left = orig.left;
+          nd.top = orig.top;
+          break;
+        case 'bl':
+          nd.left = Math.min(orig.left + dx, orig.left + orig.width - 10);
+          nd.width = orig.width - (nd.left - orig.left);
+          nd.height = Math.max(10, orig.height + dy);
+          nd.top = orig.top;
+          break;
+      }
+      nd.left = Math.max(0, Math.min(nd.left, container.clientWidth - nd.width));
+      nd.top = Math.max(0, Math.min(nd.top, container.clientHeight - nd.height));
+      nd.width = Math.max(10, Math.min(nd.width, container.clientWidth - nd.left));
+      nd.height = Math.max(10, Math.min(nd.height, container.clientHeight - nd.top));
+      Object.assign(rectObj, nd);
+    }
+    function updateRectUI(rectObj) {
+      rectObj.element.style.left = rectObj.left + 'px';
+      rectObj.element.style.top = rectObj.top + 'px';
+      rectObj.element.style.width = rectObj.width + 'px';
+      rectObj.element.style.height = rectObj.height + 'px';
+      rectObj.element.classList.add('selected');
+    }
+
+    function setSelectedRect(selected) {
+      if (rectObj && rectObj.element) {
+        if (selected) {
+          rectObj.element.classList.add('selected');
+        } else {
+          rectObj.element.classList.remove('selected');
+        }
+      }
+      saveRectBtn.disabled = !rectObj;
+    }
+
+    function getRectImageCoords(rectObj) {
+      const {left:imgL, top:imgT, width:imgW, height:imgH} = dispImgInfo;
+      const clamp = (v, min, max) => Math.max(min, Math.min(v, max));
+      const dispPoints = [
+        { x: clamp(rectObj.left, imgL, imgL+imgW), y: clamp(rectObj.top, imgT, imgT+imgH) },
+        { x: clamp(rectObj.left+rectObj.width, imgL, imgL+imgW), y: clamp(rectObj.top, imgT, imgT+imgH) },
+        { x: clamp(rectObj.left+rectObj.width, imgL, imgL+imgW), y: clamp(rectObj.top+rectObj.height, imgT, imgT+imgH) },
+        { x: clamp(rectObj.left, imgL, imgL+imgW), y: clamp(rectObj.top+rectObj.height, imgT, imgT+imgH) }
+      ];
+      const toImgPx = (p) => [
+        Math.round( (p.x - imgL) * imgNaturalWidth / imgW ),
+        Math.round( (p.y - imgT) * imgNaturalHeight / imgH )
+      ];
+      return dispPoints.map(toImgPx);
+    }
+
+    function updateCoords(rectObj) {
+      if (!rectObj) {
+        coords.innerHTML = "Coordinates:<br>";
+        return;
+      }
+      const imgPoints = getRectImageCoords(rectObj);
+      coords.innerHTML =
+        `Original image pixel coordinates (top-left origin):<br>
+        1. (${imgPoints[0][0]}, ${imgPoints[0][1]})<br>
+        2. (${imgPoints[1][0]}, ${imgPoints[1][1]})<br>
+        3. (${imgPoints[2][0]}, ${imgPoints[2][1]})<br>
+        4. (${imgPoints[3][0]}, ${imgPoints[3][1]})<br>`;
+    }
+
+    function updateMemoryList() {
+      let html = '';
+      memory.forEach((mem, idx) => {
+        html += `<div class="memory-item" data-id="${mem.id}">
+          <span class="memory-label"><b>${mem.filename}</b> : 
+            TL(${mem.coords[0][0]},${mem.coords[0][1]}) 
+            TR(${mem.coords[1][0]},${mem.coords[1][1]}) 
+            BR(${mem.coords[2][0]},${mem.coords[2][1]}) 
+            BL(${mem.coords[3][0]},${mem.coords[3][1]})
+          </span>
+          <button class="memory-delete-btn" data-id="${mem.id}" title="Delete this memory">&times;</button>
+        </div>`;
+      });
+      memoryList.innerHTML = html || "<span style='color:#999;'>No memory saved.</span>";
+    }
+
+    memoryList.addEventListener('click', (e) => {
+      if (e.target.classList.contains('memory-delete-btn')) {
+        const id = e.target.dataset.id;
+        memory = memory.filter(m => m.id != id);
+        updateMemoryList();
+      }
+    });
+
+    // Save memory to JSON file using the File System Access API if available (showSaveFilePicker)
+    memorySaveBtn.addEventListener('click', async () => {
+      if (!memory.length) {
+        alert("No memory to save.");
+        return;
+      }
+      // Convert memory to required JSON format
+      // { "filename": { "print_area": [[x,y], ...] }, ... }
+      let outObj = {};
+      memory.forEach(mem => {
+        outObj[mem.filename] = {
+          print_area: mem.coords
+        };
+      });
+      let jsonString = JSON.stringify(outObj, null, 2);
+
+      let filename = filenameInput.value.trim() || "templates.json";
+      filename = filename.replace(/[\\\/:*?"<>|]/g, "_");
+
+      // Prefer File System Access API if available
+      if (window.showSaveFilePicker) {
+        try {
+          const opts = {
+            suggestedName: filename,
+            types: [
+              {
+                description: 'JSON Files',
+                accept: {'application/json': ['.json', '.txt']}
+              }
+            ]
+          };
+          const handle = await window.showSaveFilePicker(opts);
+          const writable = await handle.createWritable();
+          await writable.write(jsonString);
+          await writable.close();
+          alert("Memory saved!");
+          return;
+        } catch (err) {
+          if (err.name !== "AbortError") {
+            alert("Failed to save file: " + err.message);
+          }
+        }
+      }
+
+      // Fallback: Classic download
+      const blob = new Blob([jsonString], {type: "application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    });
+
+    document.addEventListener('keydown', e => {
+      if ((e.key === "Delete" || e.key === "Backspace") && rectObj) {
+        clearRect();
+        setSelectedRect(false);
+        coords.innerHTML = "Coordinates:<br>";
+        saveRectBtn.disabled = true;
+      }
+    });
+
+    coords.innerHTML = "Coordinates:<br>";
+    updateMemoryList();
+    updateFileNameLabel("");
+  </script>
+</body>
+</html>
