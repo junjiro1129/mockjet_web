@@ -1,4 +1,30 @@
 # MOCKJET – Instantly Generate 100+ Print-on-Demand Mockups
+<p align="center">
+ 
+
+  <!-- 1️⃣ GitHub ⭐ ボタン -->
+  <a href="https://github.com/junjiro1129/mockjet_web/stargazers">
+    <img src="https://img.shields.io/github/stars/junjiro1129/mockjet_web?style=social" alt="GitHub Stars"/>
+  </a>
+
+  <!-- 2️⃣ License -->
+  <a href="https://github.com/junjiro1129/mockjet_web/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/junjiro1129/mockjet_web" alt="License"/>
+  </a>
+
+  <!-- 3️⃣ Latest release (手動でリリースを作成すると自動更新)-->
+  <a href="https://github.com/junjiro1129/mockjet_web/releases/latest">
+    <img src="https://img.shields.io/github/v/release/junjiro1129/mockjet_web" alt="Latest Release"/>
+  </a>
+
+  <!-- 4️⃣ Streamlit Cloud live demo -->
+  <a href="https://mockjet-web.streamlit.app/" target="_blank">
+    <img src="https://img.shields.io/badge/Live%20Demo-Streamlit-orange?logo=streamlit" alt="Live Demo"/>
+  </a>
+
+  <!-- 5️⃣ Pythonバージョン (requirements.txt に合わせて) -->
+  <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+"/>
+</p>
 
 ---
 
