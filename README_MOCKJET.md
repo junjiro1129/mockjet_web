@@ -87,7 +87,7 @@ mockjet_web/
 │   │   ├── sample_design1.jpg
 │   │   └── sample_design2.png
 │   └── mockup_web_demo.mp4
-├──readme.md
+├
 ```
 *Only `app.py`, `requirements.txt`, and `coordinatemaker.html` are required for your own projects. The DemoKit is for instant hands‑on experience.*
 
@@ -103,7 +103,7 @@ mockjet_web/
 
 ## 7. License & Support
 **License:** MIT – free for personal & commercial use. Redistribution of the app itself is not allowed.  
-**Contact:** mockjet.support@gmail.com (Discord coming soon!)
+**Contact:** junjiro1129@gmail.com (Discord coming soon!)
 
 ---
 
