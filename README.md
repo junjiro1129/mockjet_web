@@ -5,7 +5,7 @@
     <img src="https://img.shields.io/github/stars/junjiro1129/mockjet_web?style=social" alt="GitHub Stars"/>
   </a>
   <!-- 📝 License -->
-  <a href="https://github.com/junjiro1129/mockjet_web/LICENSE">
+  <a href="https://github.com/junjiro1129/mockjet_web/main/LICENSE">
     <img src="https://img.shields.io/github/license/junjiro1129/mockjet_web" alt="License"/>
   </a>
   <!-- 🔖 Release -->
